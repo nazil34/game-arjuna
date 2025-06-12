@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mahabharata Battle Game</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="game-container">
+      <!-- Header -->
+      <div class="game-header">
+        <button class="back-btn">Back to Home</button>
+        <div class="game-title-header">
+          Mahabharata Battle - Up/Down Control
+        </div>
+      </div>
+
+      <!-- Health Bars -->
+      <div class="health-bars-container">
+        <div class="health-bar-section">
+          <div class="bar-container">
+            <div class="bar-label">HP</div>
+            <div class="bar">
+              <div
+                class="bar-fill hp-bar"
+                id="arjuna-hp-bar"
+                style="width: 100%"
+              ></div>
+            </div>
+          </div>
+          <div class="bar-container">
+            <div class="bar-label">SP</div>
+            <div class="bar">
+              <div
+                class="bar-fill sp-bar"
+                id="arjuna-sp-bar"
+                style="width: 100%"
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="health-bar-section right">
+          <div class="bar-container right">
+            <div class="bar-label">HP</div>
+            <div class="bar">
+              <div
+                class="bar-fill hp-bar"
+                id="duryudana-hp-bar"
+                style="width: 100%"
+              ></div>
+            </div>
+          </div>
+          <div class="bar-container right">
+            <div class="bar-label">SP</div>
+            <div class="bar">
+              <div
+                class="bar-fill sp-bar"
+                id="duryudana-sp-bar"
+                style="width: 100%"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Battlefield -->
+      <div class="battlefield" id="battlefield">
+        <!-- Position markers -->
+        <div class="position-marker top-marker"></div>
+        <div class="position-marker middle-marker"></div>
+        <div class="position-marker bottom-marker"></div>
+
+        <!-- Arjuna Lane -->
+        <div class="character-lane">
+          <div
+            class="character-sprite arjuna-sprite"
+            id="arjuna-sprite"
+            style="top: 50%"
+          >
+            <div class="status-effects" id="arjuna-effects"></div>
+            <div class="stats-display">
+              ATK: <span id="arjuna-attack">15</span> | POS:
+              <span id="arjuna-position">MIDDLE</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Duryudana Lane -->
+        <div class="character-lane">
+          <div
+            class="character-sprite duryudana-sprite"
+            id="duryudana-sprite"
+            style="top: 50%"
+          >
+            <div class="status-effects" id="duryudana-effects"></div>
+            <div class="stats-display">
+              ATK: <span id="duryudana-attack">12</span> | POS:
+              <span id="duryudana-position">MIDDLE</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Battle Log -->
+      <div class="battle-log" id="battle-log">
+        <div class="log-entry info">
+          ⚔️ Pertempuran dimulai! Arjuna vs Duryudana
+        </div>
+        <div class="log-entry info">
+          💡 Gunakan UP/DOWN untuk bergerak dan menyerang
+        </div>
+        <div class="log-entry info">💡 Space untuk menggunakan skill</div>
+      </div>
+    </div>
+
+    <!-- Quiz Modal -->
+    <div class="quiz-modal" id="quiz-modal">
+      <div class="quiz-content">
+        <div class="quiz-question" id="quiz-question"></div>
+        <div class="quiz-options" id="quiz-options"></div>
+      </div>
+    </div>
+
+    <script>
+      // Game State
+      let gameState = {
+        arjuna: {
+          hp: 100,
+          maxHp: 100,
+          sp: 10,
+          maxSp: 20,
+          attack: 15,
+          position: 1, // 0=top, 1=middle, 2=bottom
+          effects: new Map(),
+          lastMove: 0,
+        },
+        duryudana: {
+          hp: 100,
+          maxHp: 100,
+          sp: 10,
+          maxSp: 20,
+          attack: 12,
+          position: 1, // 0=top, 1=middle, 2=bottom
+          effects: new Map(),
+          moveDirection: 1, // 1=down, -1=up
+          lastMove: 0,
+        },
+        gameOver: false,
+        skillCooldown: 0,
+      };
+
+      // Position names
+      const positionNames = ["TOP", "MIDDLE", "BOTTOM"];
+      const positionPercents = ["20%", "50%", "80%"];
+
+      // Quiz Data
+      const quizQuestions = [
+        {
+          question: "Siapakah guru Arjuna dalam ilmu memanah?",
+          options: ["Kripacharya", "Dronacharya", "Bhishma"],
+          correct: 1,
+        },
+        {
+          question: "Apa nama panah sakti milik Arjuna?",
+          options: ["Brahmastra", "Pasupatastra", "Gandiva"],
+          correct: 2,
+        },
+        {
+          question: "Duryudana adalah anak dari?",
+          options: ["Prabu Pandu", "Prabu Dhritarashtra", "Prabu Vidura"],
+          correct: 1,
+        },
+        {
+          question: "Berapa jumlah Pandawa dalam Mahabharata?",
+          options: ["4", "5", "6"],
+          correct: 1,
+        },
+        {
+          question: "Siapa saudara kembar Arjuna?",
+          options: ["Nakula dan Sahadewa", "Bima", "Yudhistira"],
+          correct: 0,
+        },
+        {
+          question: "Apa senjata utama Duryudana?",
+          options: ["Pedang", "Gada", "Panah"],
+          correct: 1,
+        },
+      ];
+
+      // Initialize Game
+      function initGame() {
+        updateDisplay();
+        startGameLoop();
+        setupKeyboardControls();
+      }
+
+      // Game Loop
+      function startGameLoop() {
+        setInterval(() => {
+          if (!gameState.gameOver) {
+            // SP regeneration
+            if (gameState.arjuna.sp < gameState.arjuna.maxSp) {
+              gameState.arjuna.sp += 0.5;
+            }
+            if (gameState.duryudana.sp < gameState.duryudana.maxSp) {
+              gameState.duryudana.sp += 0.5;
+            }
+
+            // Skill cooldown
+            if (gameState.skillCooldown > 0) {
+              gameState.skillCooldown--;
+            }
+
+            // Update effects
+            updateEffects();
+
+            // Move Duryudana automatically
+            moveDuryudanaAuto();
+
+            // Duryudana AI attack
+            duryudanaAI();
+
+            updateDisplay();
+          }
+        }, 1000);
+
+        // Faster movement and combat loop
+        setInterval(() => {
+          if (!gameState.gameOver) {
+            updatePositions();
+          }
+        }, 100);
+      }
+
+      // Keyboard Controls
+      function setupKeyboardControls() {
+        document.addEventListener("keydown", (e) => {
+          if (gameState.gameOver) return;
+
+          switch (e.key) {
+            case "ArrowUp":
+              e.preventDefault();
+              moveArjuna(-1);
+              break;
+            case "ArrowDown":
+              e.preventDefault();
+              moveArjuna(1);
+              break;
+            case " ":
+              e.preventDefault();
+              useSkill();
+              break;
+          }
+        });
+      }
+
+      // Move Arjuna
+      function moveArjuna(direction) {
+        const now = Date.now();
+        if (now - gameState.arjuna.lastMove < 300) return; // Prevent spam
+
+        const newPos = gameState.arjuna.position + direction;
+        if (newPos >= 0 && newPos <= 2) {
+          gameState.arjuna.position = newPos;
+          gameState.arjuna.lastMove = now;
+
+          // Check for attack opportunity
+          if (gameState.arjuna.position === gameState.duryudana.position) {
+            performAttack("arjuna");
+          }
+
+          addLog(
+            `Arjuna bergerak ke ${positionNames[gameState.arjuna.position]}`,
+            "info"
+          );
+        }
+      }
+
+      // Move Duryudana Automatically
+      function moveDuryudanaAuto() {
+        const now = Date.now();
+        if (now - gameState.duryudana.lastMove < 2000) return; // Move every 2 seconds
+
+        // Change direction at boundaries
+        if (gameState.duryudana.position <= 0) {
+          gameState.duryudana.moveDirection = 1;
+        } else if (gameState.duryudana.position >= 2) {
+          gameState.duryudana.moveDirection = -1;
+        }
+
+        // Randomly change direction sometimes
+        if (Math.random() < 0.3) {
+          gameState.duryudana.moveDirection *= -1;
+        }
+
+        const newPos =
+          gameState.duryudana.position + gameState.duryudana.moveDirection;
+        if (newPos >= 0 && newPos <= 2) {
+          gameState.duryudana.position = newPos;
+          gameState.duryudana.lastMove = now;
+        }
+      }
+
+      // Duryudana AI
+      function duryudanaAI() {
+        // Attack if in same position
+        if (
+          gameState.arjuna.position === gameState.duryudana.position &&
+          Math.random() < 0.4
+        ) {
+          performAttack("duryudana");
+        }
+
+        // Use skill sometimes
+        if (gameState.duryudana.sp >= 8 && Math.random() < 0.2) {
+          duryudanaSkill();
+        }
+      }
+
+      // Perform Attack
+      function performAttack(attacker) {
+        const isArjuna = attacker === "arjuna";
+        const attackerData = gameState[attacker];
+        const targetKey = isArjuna ? "duryudana" : "arjuna";
+        const targetData = gameState[targetKey];
+
+        // Calculate hit chance based on position
+        let hitChance = 0.7; // Base hit chance
+        if (attackerData.position === targetData.position) {
+          hitChance = 0.9; // High hit chance when in same position
+        }
+
+        if (Math.random() < hitChance) {
+          // Hit!
+          const damage = attackerData.attack + Math.floor(Math.random() * 5);
+          targetData.hp = Math.max(0, targetData.hp - damage);
+
+          addLog(
+            `${
+              isArjuna ? "Arjuna" : "Duryudana"
+            } menyerang! (${damage} damage)`,
+            "damage"
+          );
+          createHitEffect(targetKey, damage);
+          createAttackEffect(attacker, targetKey);
+        } else {
+          // Miss!
+          addLog(
+            `${isArjuna ? "Arjuna" : "Duryudana"} menyerang tapi meleset!`,
+            "info"
+          );
+          createHitEffect(targetKey, "MISS", true);
+        }
+
+        checkGameOver();
+      }
+
+      // Use Skill
+      function useSkill() {
+        if (gameState.skillCooldown > 0) {
+          addLog(`Skill masih cooldown (${gameState.skillCooldown}s)`, "info");
+          return;
+        }
+
+        if (gameState.arjuna.sp < 5) {
+          addLog("SP tidak cukup untuk skill (butuh 5 SP)", "info");
+          return;
+        }
+
+        showQuiz();
+      }
+
+      // Duryudana Skill
+      function duryudanaSkill() {
+        gameState.duryudana.sp -= 8;
+
+        const skillType = Math.floor(Math.random() * 3);
+
+        switch (skillType) {
+          case 0: // Area Attack
+            const damage = 20;
+            gameState.arjuna.hp = Math.max(0, gameState.arjuna.hp - damage);
+            addLog(
+              `Duryudana menggunakan Gada Berputar! (${damage} damage)`,
+              "damage"
+            );
+            createHitEffect("arjuna", damage);
+            break;
+
+          case 1: // Heal
+            const healAmount = 25;
+            gameState.duryudana.hp = Math.min(
+              gameState.duryudana.maxHp,
+              gameState.duryudana.hp + healAmount
+            );
+            addLog(
+              `Duryudana menggunakan Regenerasi! (+${healAmount} HP)`,
+              "heal"
+            );
+            createHitEffect("duryudana", `+${healAmount}`, false, true);
+            break;
+
+          case 2: // Buff
+            addEffect("duryudana", "Kemarahan", 5, { attack: 1.5 });
+            addLog("Duryudana menggunakan Kemarahan! ATK +50%", "buff");
+            break;
+        }
+
+        checkGameOver();
+      }
+
+      // Show Quiz
+      function showQuiz() {
+        const quiz =
+          quizQuestions[Math.floor(Math.random() * quizQuestions.length)];
+        document.getElementById("quiz-question").innerText = quiz.question;
+        const optionsDiv = document.getElementById("quiz-options");
+        optionsDiv.innerHTML = "";
+        quiz.options.forEach((opt, index) => {
+          const btn = document.createElement("button");
+          btn.innerText = opt;
+          btn.onclick = () => handleQuizAnswer(index === quiz.correct);
+          optionsDiv.appendChild(btn);
+        });
+        document.getElementById("quiz-modal").style.display = "block";
+      }
+
+      function handleQuizAnswer(correct) {
+        document.getElementById("quiz-modal").style.display = "none";
+        if (correct) {
+          // Tambahkan efek skill Arjuna
+          const damage = 30;
+          gameState.duryudana.hp = Math.max(0, gameState.duryudana.hp - damage);
+          addLog(`Skill Arjuna berhasil! (${damage} damage)`, "damage");
+          createHitEffect("duryudana", damage);
+        } else {
+          addLog(`Skill gagal karena jawaban salah.`, "info");
+        }
+      }
+
+      // Answer Quiz
+      function answerQuiz(selectedIndex, correctIndex) {
+        const modal = document.getElementById("quiz-modal");
+        modal.style.display = "none";
+
+        if (selectedIndex === correctIndex) {
+          executeArjunaSkill();
+          addLog("Jawaban benar! Skill berhasil digunakan", "info");
+        } else {
+          addLog("Jawaban salah! Skill gagal digunakan!", "info");
+        }
+
+        gameState.skillCooldown = 3;
+      }
+
+      // Execute Arjuna Skill
+      function executeArjunaSkill() {
+        gameState.arjuna.sp -= 5;
+
+        const skillType = Math.floor(Math.random() * 4);
+
+        switch (skillType) {
+          case 0: // Divine Arrow
+            const damage = 30;
+            gameState.duryudana.hp = Math.max(
+              0,
+              gameState.duryudana.hp - damage
+            );
+            addLog(
+              `Arjuna menggunakan Panah Suci! (${damage} damage)`,
+              "damage"
+            );
+            createHitEffect("duryudana", damage);
+            break;
+
+          case 1: // Heal
+            const healAmount = 20;
+            gameState.arjuna.hp = Math.min(
+              gameState.arjuna.maxHp,
+              gameState.arjuna.hp + healAmount
+            );
+            addLog(
+              `Arjuna menggunakan Pemulihan Diri! (+${healAmount} HP)`,
+              "heal"
+            );
+            createHitEffect("arjuna", `+${healAmount}`, false, true);
+            break;
+
+          case 2: // Multi Attack
+            for (let i = 0; i < 3; i++) {
+              setTimeout(() => {
+                const damage = 8 + Math.floor(Math.random() * 4);
+                gameState.duryudana.hp = Math.max(
+                  0,
+                  gameState.duryudana.hp - damage
+                );
+                addLog(`Panah Beruntun ${i + 1}! (${damage} damage)`, "damage");
+                createHitEffect("duryudana", damage);
+                checkGameOver();
+              }, i * 500);
+            }
+            break;
+
+          case 3: // Buff
+            addEffect("arjuna", "Konsentrasi", 7, {
+              attack: 1.3,
+              hitChance: 1.2,
+            });
+            addLog(
+              "Arjuna menggunakan Konsentrasi! ATK +30%, Akurasi +20%",
+              "buff"
+            );
+            break;
+        }
+
+        checkGameOver();
+      }
+
+      // Add Effect
+      function addEffect(target, name, duration, modifiers) {
+        gameState[target].effects.set(name, {
+          duration: duration,
+          modifiers: modifiers,
+        });
+        updateEffectDisplay(target);
+      }
+
+      // Update Effects
+      function updateEffects() {
+        ["arjuna", "duryudana"].forEach((character) => {
+          const effects = gameState[character].effects;
+          const toRemove = [];
+
+          effects.forEach((effect, name) => {
+            effect.duration--;
+            if (effect.duration <= 0) {
+              toRemove.push(name);
+            }
+          });
+
+          toRemove.forEach((name) => {
+            effects.delete(name);
+            addLog(
+              `${
+                character === "arjuna" ? "Arjuna" : "Duryudana"
+              }: Efek ${name} berakhir`,
+              "info"
+            );
+          });
+
+          updateEffectDisplay(character);
+        });
+      }
+
+      // Update Effect Display
+      function updateEffectDisplay(character) {
+        const effectsContainer = document.getElementById(
+          `${character}-effects`
+        );
+        effectsContainer.innerHTML = "";
+
+        gameState[character].effects.forEach((effect, name) => {
+          const effectEl = document.createElement("div");
+          effectEl.className = "status-effect";
+          effectEl.textContent = `${name} (${effect.duration})`;
+          effectsContainer.appendChild(effectEl);
+        });
+      }
+
+      // Calculate Modified Stats
+      function getModifiedStats(character) {
+        const base = gameState[character];
+        let attack = base.attack;
+        let hitChance = 0.7;
+
+        base.effects.forEach((effect) => {
+          if (effect.modifiers.attack) {
+            attack *= effect.modifiers.attack;
+          }
+          if (effect.modifiers.hitChance) {
+            hitChance *= effect.modifiers.hitChance;
+          }
+        });
+
+        return { attack: Math.floor(attack), hitChance };
+      }
+
+      // Create Attack Effect
+      function createAttackEffect(attacker, target) {
+        const battlefield = document.getElementById("battlefield");
+        const effect = document.createElement("div");
+        effect.className = "attack-effect";
+
+        const attackerSprite = document.getElementById(`${attacker}-sprite`);
+        const targetSprite = document.getElementById(`${target}-sprite`);
+
+        const attackerRect = attackerSprite.getBoundingClientRect();
+        const targetRect = targetSprite.getBoundingClientRect();
+        const battlefieldRect = battlefield.getBoundingClientRect();
+
+        effect.style.left =
+          attackerRect.left - battlefieldRect.left + 60 + "px";
+        effect.style.top = attackerRect.top - battlefieldRect.top + 60 + "px";
+
+        battlefield.appendChild(effect);
+
+        setTimeout(() => {
+          if (effect.parentNode) {
+            effect.parentNode.removeChild(effect);
+          }
+        }, 1000);
+      }
+
+      // Create Hit Effect
+      function createHitEffect(target, value, isMiss = false, isHeal = false) {
+        const sprite = document.getElementById(`${target}-sprite`);
+        const indicator = document.createElement("div");
+        indicator.className = "hit-indicator";
+
+        if (isMiss) {
+          indicator.textContent = "MISS!";
+          indicator.classList.add("miss-indicator");
+        } else if (isHeal) {
+          indicator.textContent = value;
+          indicator.classList.add("heal");
+        } else {
+          indicator.textContent = `-${value}`;
+        }
+
+        indicator.style.left = "50%";
+        indicator.style.top = "-20px";
+        sprite.appendChild(indicator);
+
+        setTimeout(() => {
+          if (indicator.parentNode) {
+            indicator.parentNode.removeChild(indicator);
+          }
+        }, 1000);
+      }
+
+      // Update Positions
+      function updatePositions() {
+        const arjunaSprite = document.getElementById("arjuna-sprite");
+        const duryudanaSprite = document.getElementById("duryudana-sprite");
+
+        arjunaSprite.style.top = positionPercents[gameState.arjuna.position];
+        duryudanaSprite.style.top =
+          positionPercents[gameState.duryudana.position];
+      }
+
+      // Update Display
+      function updateDisplay() {
+        // Update HP bars
+        const arjunaHpPercent =
+          (gameState.arjuna.hp / gameState.arjuna.maxHp) * 100;
+        const duryudanaHpPercent =
+          (gameState.duryudana.hp / gameState.duryudana.maxHp) * 100;
+
+        document.getElementById("arjuna-hp-bar").style.width =
+          arjunaHpPercent + "%";
+        document.getElementById("duryudana-hp-bar").style.width =
+          duryudanaHpPercent + "%";
+
+        // Update SP bars
+        const arjunaSpPercent =
+          (gameState.arjuna.sp / gameState.arjuna.maxSp) * 100;
+        const duryudanaSpPercent =
+          (gameState.duryudana.sp / gameState.duryudana.maxSp) * 100;
+
+        document.getElementById("arjuna-sp-bar").style.width =
+          arjunaSpPercent + "%";
+        document.getElementById("duryudana-sp-bar").style.width =
+          duryudanaSpPercent + "%";
+
+        // Update stats display
+        const arjunaStats = getModifiedStats("arjuna");
+        const duryudanaStats = getModifiedStats("duryudana");
+
+        document.getElementById("arjuna-attack").textContent =
+          arjunaStats.attack;
+        document.getElementById("duryudana-attack").textContent =
+          duryudanaStats.attack;
+
+        document.getElementById("arjuna-position").textContent =
+          positionNames[gameState.arjuna.position];
+        document.getElementById("duryudana-position").textContent =
+          positionNames[gameState.duryudana.position];
+      }
+
+      // Add Log
+      function addLog(message, type = "info") {
+        const log = document.getElementById("battle-log");
+        const entry = document.createElement("div");
+        entry.className = `log-entry ${type}`;
+        entry.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+
+        log.appendChild(entry);
+        log.scrollTop = log.scrollHeight;
+
+        // Keep only last 50 entries
+        if (log.children.length > 50) {
+          log.removeChild(log.firstChild);
+        }
+      }
+
+      // Check Game Over
+      function checkGameOver() {
+        if (gameState.arjuna.hp <= 0) {
+          gameState.gameOver = true;
+          addLog("🏆 DURYUDANA MENANG! Game Over!", "damage");
+          setTimeout(() => {
+            alert("Game Over! Duryudana menang!\n\nTekan OK untuk restart.");
+            restartGame();
+          }, 1000);
+        } else if (gameState.duryudana.hp <= 0) {
+          gameState.gameOver = true;
+          addLog("🏆 ARJUNA MENANG! Kemenangan untuk kebaikan!", "heal");
+          setTimeout(() => {
+            alert(
+              "Selamat! Arjuna menang!\n\nKebaikan selalu menang melawan kejahatan.\nTekan OK untuk main lagi."
+            );
+            restartGame();
+          }, 1000);
+        }
+      }
+
+      // Restart Game
+      function restartGame() {
+        gameState = {
+          arjuna: {
+            hp: 100,
+            maxHp: 100,
+            sp: 10,
+            maxSp: 20,
+            attack: 15,
+            position: 1,
+            effects: new Map(),
+            lastMove: 0,
+          },
+          duryudana: {
+            hp: 100,
+            maxHp: 100,
+            sp: 10,
+            maxSp: 20,
+            attack: 12,
+            position: 1,
+            effects: new Map(),
+            moveDirection: 1,
+            lastMove: 0,
+          },
+          gameOver: false,
+          skillCooldown: 0,
+        };
+
+        // Clear battle log
+        document.getElementById("battle-log").innerHTML = `
+          <div class="log-entry info">⚔️ Game dimulai ulang! Arjuna vs Duryudana</div>
+          <div class="log-entry info">💡 Gunakan UP/DOWN untuk bergerak dan menyerang</div>
+          <div class="log-entry info">💡 Space untuk menggunakan skill</div>
+        `;
+
+        // Clear effects
+        document.getElementById("arjuna-effects").innerHTML = "";
+        document.getElementById("duryudana-effects").innerHTML = "";
+
+        updateDisplay();
+      }
+
+      // Back Button
+      document.querySelector(".back-btn").addEventListener("click", () => {
+        if (confirm("Keluar dari game? Progress akan hilang.")) {
+          window.history.back();
+        }
+      });
+
+      // Start Game
+      window.addEventListener("load", () => {
+        initGame();
+        addLog("🎮 Game dimuat! Selamat bertarung!", "info");
+      });
+
+      // Prevent context menu and selection
+      document.addEventListener("contextmenu", (e) => e.preventDefault());
+      document.addEventListener("selectstart", (e) => e.preventDefault());
+    </script>
+  </body>
+</html>
